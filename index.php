@@ -1,0 +1,833 @@
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+ini_set('max_execution_time', 3600);
+
+ini_set('memory_limit','8000M');
+
+
+?>
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="systemCard">
+    <div class="image">
+        <img src="http://firstgreatexpedition.org/FGEmj/images/2/28/BD%2B47_2112_B_%28sur%29.jpg" alt="">
+    </div>
+    <div class="name"></div>
+    <div class="state"></div>
+</div>
+
+<?php
+
+// require_once $_SERVER['DOCUMENT_ROOT'] . "/vendor/autoload.php";
+//
+// $listener = new \JsonStreamingParser\Listener\InMemoryListener();
+
+// $stream = fopen('c:/Users/ShtHappens796/Desktop/systemsWithCoordinates.json', 'r');
+// $stream = fopen('c:/Users/ShtHappens796/Desktop/test.json', 'r');
+
+function startsWith($haystack, $needle) {
+    return substr($haystack, 0, strlen($needle)) === $needle;
+}
+
+function endsWith($haystack, $needle) {
+    return substr($haystack, -strlen($needle)) === $needle;
+}
+
+function readTheFile($path) {
+    $handle = fopen($path, "r");
+
+    while(!feof($handle)) {
+        yield trim(fgets($handle));
+    }
+
+    fclose($handle);
+}
+
+function dist($a, $b) {
+    return sqrt(
+        pow(($a->coords->x - $b->coords->x), 2) +
+        pow(($a->coords->y - $b->coords->y), 2) +
+        pow(($a->coords->z - $b->coords->z), 2)
+    );
+}
+
+// processStars();
+
+function processStars() {
+    $base = (object)["coords" => (object)["x" => 55.0625, "y" => 87.28125, "z" => 56.78125]];
+    $file = readTheFile("c:/Users/ShtHappens796/Desktop/systemsWithCoordinates.json");
+    // $file = readTheFile("c:/Users/ShtHappens796/Desktop/test.json");
+
+    $parsed = [];
+
+    foreach ($file as $line) {
+        if ($line != "[" && $line != "]") {
+        // echo json_encode($line);
+            if (endsWith($line, "},")) {
+                $line = rtrim($line, ',');
+            }
+
+            // var_dump($line);
+            $system = json_decode($line);
+            // var_dump($system);
+            if (
+                dist($base, $system) < 100
+            ) {
+                $parsed[$system->id] = $system;
+                gc_collect_cycles();
+            }
+        }
+        // var_dump($iteration);
+        // preg_match("/^(.*?)$/", $iteration, $matches);
+        //
+        // if (count($matches)) {
+        //     var_dump($matches);
+        //     print ".";
+        //     flush();
+        //     ob_flush();
+        //     $buffer = "";
+        // } else {
+        //     $buffer .= $iteration . PHP_EOL;
+        // }
+    }
+
+    $success = file_put_contents("bubble.json", json_encode($parsed));
+    var_dump($success);
+
+    die();
+}
+
+
+
+
+
+
+?>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/104/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/16.3.5/Tween.min.js"></script>
+<script src="camera-controls.min.js"></script>
+
+<script>
+
+// var TWEEN = require('@tweenjs/tween.js');
+
+
+
+
+function loadBubble(callback) {
+
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+    xobj.open('GET', 'bubble.json', true);
+    xobj.onreadystatechange = function () {
+          if (xobj.readyState == 4 && xobj.status == "200") {
+            var data = JSON.parse(xobj.responseText);
+            callback(data);
+        }
+    };
+    xobj.send(null);
+}
+
+function loadDelta(callback) {
+
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+    xobj.open('GET', 'delta.json', true);
+    xobj.onreadystatechange = function () {
+          if (xobj.readyState == 4 && xobj.status == "200") {
+            var data = JSON.parse(xobj.responseText);
+            callback(data);
+        }
+    };
+    xobj.send(null);
+}
+
+</script>
+
+<script>
+
+CameraControls.install( { THREE: THREE } );
+
+const clock = new THREE.Clock();
+
+var raycaster = new THREE.Raycaster();
+var mouse = {x:1, y:1};
+var systemCard = document.getElementById("systemCard");
+// var aspect = WIDTH / HEIGHT;
+
+// var frustumSize = 200;
+
+
+
+var scene = new THREE.Scene();
+
+var renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
+// left : Number, right : Number, top : Number, bottom : Number, near : Number, far : Number
+// var camera = new THREE.OrthographicCamera( 1, 1, 1, 1, 0, 100 );
+// console.log(0.5 * frustumSize * aspect / - 2);
+// console.log(0.5 * frustumSize * aspect / 2);
+//
+// "x":55.0625,"y":87.28125,"z":56.78125
+
+//
+var camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 300000 ); //3000
+// var camera = new THREE.OrthographicCamera( -window.innerWidth, window.innerWidth, window.innerHeight, -window.innerHeight, -1000, 1000 );
+
+// camera.position.z = 1000;
+camera.zoom = 1;
+// camera.rotation.y = Math.PI ;
+// camera.position.set(55.0625, 87.28125, 56.78125);
+camera.position.set(55.0625 - 100, 87.28125 - 50, 56.78125);
+
+// camera.position.set(0,0,+100);
+camera.updateProjectionMatrix();
+
+var controls = new CameraControls(camera, renderer.domElement, {ignoreDOMEventListeners: false});
+controls.moveTo( 55.0625, 87.28125, 56.78125);
+controls.truckSpeed = 0;
+controls.minDistance = 1;
+controls.maxDistance = 150;
+// controls.dampingFactor=0.1
+// controls.dollySpeed = 0;
+
+var wasd = [];
+
+window.setInterval(function () {
+    var coords = controls.getTarget();
+
+    if (wasd["KeyW"]) {
+        controls.forward( 1, true );
+    }
+    if (wasd["KeyS"]) {
+        controls.forward( -1, true );
+    }
+    if (wasd["KeyA"]) {
+        controls.truck(-1, 0, true);
+    }
+    if (wasd["KeyD"]) {
+        controls.truck(1, 0, true);
+    }
+    // if (wasd["ScrollUp"]) {
+    //     controls.dolly(-1, true);
+    //     wasd["ScrollUp"] -= 1;
+    // }
+    // if (wasd["ScrollDown"]) {
+    //     controls.dolly(1, true);
+    //     wasd["ScrollDown"] -= 1;
+    // }
+}, 1);
+
+// document.addEventListener("wheel", function(event) {
+//     event.preventDefault();
+//     // console.log(event.deltaY);
+//     if (event.deltaY < 0) {
+//         wasd["ScrollUp"] = 1;
+//         wasd["ScrollDown"] = false;
+//     }
+//     else {
+//         wasd["ScrollDown"] = 1;
+//         wasd["ScrollUp"] = false;
+//     }
+// }, false);
+/*
+document.addEventListener( 'keydown', function(event) {
+    // console.log(event.code);
+    if (event.code == "KeyW" ||
+        event.code == "KeyA" ||
+        event.code == "KeyS" ||
+        event.code == "KeyD"
+    ) {
+        event.preventDefault();
+        wasd[event.code] = true;
+    }
+}, false );
+
+document.addEventListener('keyup', function(event) {
+    if (
+        event.code == "KeyW" ||
+        event.code == "KeyA" ||
+        event.code == "KeyS" ||
+        event.code == "KeyD"
+    ) {
+        wasd[event.code] = false;
+    }
+})
+*/
+// setInterval(function() {
+// }, 200)
+// controls.dollySpeed = 1;
+// controls.dampingFactor = 0.01;
+// controls.target.set(55.0625, 87.28125, 56.78125);
+// controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+// controls.dampingFactor = -1000;
+//
+// controls.screenSpacePanning = true;
+//
+// controls.minDistance = 1;
+// // controls.enableKeys = false;
+// controls.maxDistance = 1000;
+//
+// controls.keyPanSpeed = 20;
+//
+// controls.maxPolarAngle = Math.PI / 1;
+//
+// controls.keys = {
+// 	LEFT: 65, //left arrow
+// 	UP: 87, // up arrow
+// 	RIGHT: 68, // right arrow
+// 	BOTTOM: 83 // down arrow
+// }
+
+
+// scene.add( camera );
+
+
+function calcDist(r, c1, c2) {
+    return Math.sqrt(Math.pow(r, 2) - Math.pow(c1, 2) - Math.pow(c2, 2));
+}
+
+var texture = new THREE.TextureLoader().load( 'final.jpg' );
+var side = new THREE.TextureLoader().load( 'milkytop.jpg' );
+
+
+// THREE.NoBlending
+// THREE.NormalBlending
+// THREE.AdditiveBlending
+// THREE.SubtractiveBlending
+// THREE.MultiplyBlending
+// THREE.CustomBlending
+
+
+material = new THREE.MeshBasicMaterial({ map : texture, blending: THREE.NormalBlending, transparent: true, opacity: .1, flatShading: false,  depthWrite: false});
+plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(4096, 4096), material);
+plane.material.side = THREE.DoubleSide;
+// plane.position.set( 25.21875, -20.90625, 25899.96875 );
+plane.position.set( 25.21875, 87.28125, 25899.96875 );
+// plane.position.set( 25.21875, 87.28125, 890 );
+// plane.position.set( 55.0625, 87.28125, 56.78125 );
+// 55.0625,87.28125,56.78125
+plane.rotation.x = - Math.PI / 2;
+plane.rotation.z = - Math.PI / 0.7;
+plane.scale.set(30, 30, 30);
+// scene.add(plane);
+
+
+
+// material = new THREE.MeshBasicMaterial({ color: 0x999999, map : side, blending: THREE.NormalBlending, transparent: false, opacity: .3, flatShading: false,  depthWrite: false});
+// plane = new THREE.Mesh(new THREE.PlaneGeometry(512, 32), material);
+// plane.material.side = THREE.DoubleSide;
+// // plane.position.set( 25.21875, -20.90625, 25899.96875 );
+// plane.position.set( 25.21875, 87.28125 + 32*50, 25899.96875 );
+// // plane.position.set( 55.0625, 87.28125, 56.78125 );
+// // 55.0625,87.28125,56.78125
+// // plane.rotation.x = Math.PI / 2;
+// plane.scale.set(100, 100, 100);
+// scene.add(plane);
+
+
+
+
+var step = 5;
+
+var radius = 1000;
+
+//
+// THREE.NoBlending
+// THREE.NormalBlending
+// THREE.AdditiveBlending
+// THREE.SubtractiveBlending
+// THREE.MultiplyBlending
+// THREE.CustomBlending
+
+
+
+
+
+// var material = new THREE.MeshPhongMaterial( { emissive: 0xffff00, color: 0x0dffff, opacity: .1, transparent: true, flatShading: true, depthWrite: false } );
+var material = new THREE.MeshPhongMaterial( { emissive: 0x00ffff, color: 0xffffff,  opacity: .1, side: THREE.DoubleSide, flatShading: false, transparent: true, depthWrite: false } );
+var grid = [];
+for ( var i = -radius; i <= radius; i += step ) {
+
+
+    var dist = calcDist(radius, 0, i);
+
+    //var geometry = new THREE.CylinderBufferGeometry( .1, dist*2, 1, 1 );
+    var geometry = new THREE.PlaneBufferGeometry( .1, dist*2, 1, 1 );
+
+    // geometry.vertices.push( new THREE.Vector3( dist, 0, i ) );
+    // geometry.vertices.push( new THREE.Vector3( -dist, 0, i ) );
+    // geometry.vertices.push( new THREE.Vector3( -dist, 1, i ) );
+    // geometry.vertices.push( new THREE.Vector3( -dist, 1, i ) );
+    var line = new THREE.Mesh( geometry, material );
+    line.position.set(55.0625, 87.28125, 56.78125 + i);
+    line.rotation.z = Math.PI / 2;
+    line.rotation.x = Math.PI / 2;
+    scene.add( line );
+    grid.push(line);
+
+    var line = new THREE.Mesh( geometry, material );
+    line.position.set(55.0625 + i, 87.28125, 56.78125);
+    // line.rotation.y = - Math.PI / 2;
+    line.rotation.x = Math.PI / 2;
+    grid.push(line);
+    scene.add( line );
+
+
+
+
+
+
+    // var geometry = new THREE.Geometry();
+    //
+    // var dist = calcDist(radius, 0, i);
+    //
+    // geometry.vertices.push( new THREE.Vector3( dist, -100, i ) );
+    // geometry.vertices.push( new THREE.Vector3( -dist, -100, i ) );
+    // var line = new THREE.Line( geometry, material, THREE.LineSegments );
+    // line.position.set(55.0625, 87.28125, 56.78125);
+    // scene.add( line );
+
+
+
+
+
+
+
+
+    // var geometry = new THREE.BoxGeometry( );
+    // geometry.vertices.push( new THREE.Vector3( i, 0, - dist ) );
+    // geometry.vertices.push( new THREE.Vector3( i, 0,   dist ) );
+    // var line = new THREE.Line( geometry, material, THREE.LineSegments );
+    // line.position.set(55.0625, 87.28125, 56.78125);
+    // scene.add( line );
+}
+
+
+var light = new THREE.PointLight( 0xffffff, 1, 1, 200 );
+// material.color.setRGB( light.intensity / 100, light.intensity / 100, 0 );
+light.position.set( 55.0625, 87.28125 + 100, 56.78125 );
+// scene.add( light );
+
+var light = new THREE.PointLight( 0xffffff, 10, 1000, 2 );
+// material.color.setRGB( light.intensity / 100, light.intensity / 100, 0 );
+light.position.set( 55.0625, 87.28125 - 100, 56.78125 );
+// scene.add( light );
+
+
+// bientLight = new THREE.AmbientLight(0xffffff);
+// bientLight.position.set( 55.0625, 87.28125, 56.78125 );
+// scene.add(bientLight);
+
+
+// var radius = 500;
+// var radials = 16;
+// var circles = 32;
+// var divisions = 64;
+//
+// var helper = new THREE.PolarGridHelper( radius, radials, circles, divisions );
+// scene.add( helper );
+//
+// helper.position.set(55.0625, 87.28125, 56.78125);
+// helper.color = 0xccccff;
+
+
+var states = {
+    'None': "#ab9384",
+    'Retreat': "#ff0939",
+    'War': "#ffc51e",
+    'Lockdown': "#ffff2c",
+    'Civil Unrest': "#e2ff09",
+    'Civil War': "#00ce00",
+    'Boom': "#08ffe1",
+    'Expansion': "#61b2ee",
+    'Bust': "#0073f6",
+    'Outbreak': "#cb00f5",
+    'Famine': "#ff00ff",
+    'Election': "#e5752c",
+    'Investment': "#fffff1",
+    'Civil Liberty': "#ff72ce",
+    'Incursion': "#b8006e"
+}
+
+
+function addStar(name, color, opacity, x, y, z) {
+
+    var state;
+
+
+    if (name in systems === true) {
+        // console.log();
+        if (systems[name].states) {
+            var state = systems[name].states[0].name;
+            if (state in states === true) {
+                color = states[state];
+            }
+        }
+
+
+    }
+
+
+    var geometry = new THREE.SphereBufferGeometry( .2, 32, 32  );
+    // var material = new THREE.MeshBasicMaterial( { color: 0x333333 } );
+    var meshMaterial = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide, flatShading: false, transparent: true, opacity: opacity, depthWrite: true } );
+    // var meshMaterial = new THREE.MeshPhongMaterial( { color: color, side: THREE.DoubleSide, flatShading: true, transparent: false, opacity: 1, depthWrite: true } );
+
+    var sphere = new THREE.Mesh( geometry, meshMaterial );
+    sphere.position.set(x, y, z);
+    scene.add( sphere );
+    sphere.name = name;
+
+    if (name in systems === true) {
+        sphere.state = state;
+    }
+
+    var outlineMaterial = new THREE.MeshBasicMaterial( { color: 0x555555, side: THREE.BackSide, flatShading: false, transparent: true, opacity: opacity / 3, depthWrite: false } );
+    var outline = new THREE.Mesh( geometry, outlineMaterial );
+    outline.position.set(x, y, z);
+    // outline.scale.multiplyScalar(1);
+    scene.add(outline);
+    sphere.outline = outline;
+
+
+
+    if (sphere.position.distanceTo({x:55.0625, y:87.28125 , z:56.78125}) < 20) {
+        var height = 87.28125 - y;
+        if (height != 0) {
+            var material = new THREE.MeshBasicMaterial( { color: 0x13f9ff, opacity: .1, side: THREE.DoubleSide, flatShading: false, transparent: true, depthWrite: false } );
+
+            var geometry = new THREE.CylinderGeometry( .03, .03, Math.abs(height) - .2, 32, 1, false );
+
+            var line = new THREE.Mesh( geometry, material );
+            line.position.set(x, 87.28125 - (height - (Math.abs(height) / height * .2)) / 2, z);
+            // line.rotation.z = Math.PI / 2;
+            // line.rotation.x = Math.PI / 4;
+            scene.add( line );
+
+
+            var material = new THREE.MeshBasicMaterial( { color: 0x13f9ff, opacity: .3, side: THREE.DoubleSide, flatShading: false, transparent: true, depthWrite: false } );
+            var geometry = new THREE.CylinderGeometry( .3, .3, .001, 32, 1, false );
+
+            var line = new THREE.Mesh( geometry, material );
+            line.position.set(x, 87.28125, z);
+
+            // line.rotation.z = Math.PI / 2;
+            // line.rotation.x = Math.PI / 4;
+            scene.add( line );
+
+
+
+
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    return sphere;
+
+}
+
+
+
+
+var systems = {"38 Virginis":{"x":44.96875,"y":91.53125,"z":31.53125},"53 Virginis":{"x":57.9375,"y":79.59375,"z":50.34375},"55 Virginis":{"x":70.9375,"y":85.5,"z":61.6875},"57 Virginis":{"x":69.53125,"y":84.3125,"z":61.65625},"Anek Wang":{"x":77.34375,"y":78.21875,"z":49.71875},"Anotchadiae":{"x":72.4375,"y":69.5625,"z":58.40625},"Ao Konbul":{"x":68.65625,"y":93,"z":44.75},"Arapi":{"x":60.875,"y":98.78125,"z":46.15625},"Auscabs":{"x":56.1875,"y":117.21875,"z":59.59375},"Barumbo":{"x":76.40625,"y":79.90625,"z":33.875},"Bhrima":{"x":55.75,"y":88.625,"z":70.1875},"Bugayaman":{"x":55.0625,"y":87.28125,"z":56.78125},"Cakiniez":{"x":41.4375,"y":82.21875,"z":49.21875},"Charenner":{"x":52.875,"y":79.3125,"z":58.21875},"Cibambo":{"x":86.40625,"y":98.46875,"z":37.875},"Ensoreus":{"x":69.15625,"y":66.21875,"z":69.5625},"Folna":{"x":53.90625,"y":77.9375,"z":33.71875},"Gliese 488.2":{"x":54.875,"y":100.75,"z":37.75},"Haeduwong":{"x":58.8125,"y":66.4375,"z":65.625},"HIP 61224":{"x":76.625,"y":116.40625,"z":37.6875},"HIP 61687":{"x":64.5,"y":113.5625,"z":34.6875},"HIP 62921":{"x":79.875,"y":111.5625,"z":55.375},"HIP 66987":{"x":49.1875,"y":104.3125,"z":69.375},"HIP 67031":{"x":44.90625,"y":100.09375,"z":65.03125},"HIP 70756":{"x":39.15625,"y":78.21875,"z":83.5625},"Holda":{"x":46.34375,"y":100.4375,"z":59.40625},"HR 4776":{"x":73.4375,"y":93.28125,"z":37.375},"Hreintania":{"x":86.53125,"y":88.40625,"z":49.28125},"Hydrae Sector AQ-Y c11":{"x":50.5,"y":101.875,"z":42.21875},"Iptera":{"x":76.625,"y":101.5625,"z":41.09375},"Isinor":{"x":67.125,"y":68.1875,"z":54.96875},"Kaluhet":{"x":64.03125,"y":87.625,"z":41.28125},"Kanians":{"x":44.84375,"y":98.09375,"z":55.0625},"Kunth":{"x":65.84375,"y":88.71875,"z":38.71875},"Kupala":{"x":39.90625,"y":97.28125,"z":62.53125},"Long Mu":{"x":43.5625,"y":93.5,"z":74.25},"LTT 141":{"x":50.28125,"y":93.0625,"z":38.9375},"LTT 4789":{"x":77.4375,"y":79.6875,"z":42.65625},"LTT 4851":{"x":50.75,"y":102.75,"z":29.21875},"LTT 5053":{"x":71.09375,"y":74.9375,"z":59.4375},"LTT 5237":{"x":40.65625,"y":84.8125,"z":50.53125},"Lugupa":{"x":58.71875,"y":114.46875,"z":71.03125},"Mbo":{"x":67.09375,"y":91.09375,"z":43.875},"Mokusa":{"x":59.8125,"y":83.375,"z":79.15625},"Nakula":{"x":80.65625,"y":98.59375,"z":29.5625},"NLTT 34960":{"x":57.78125,"y":72.125,"z":66.96875},"Pandjuk":{"x":30.4375,"y":90.25,"z":38.1875},"Parsaka":{"x":76.4375,"y":79.53125,"z":55.5},"Pentu":{"x":54.375,"y":110.53125,"z":48.5},"Reshas":{"x":73.9375,"y":71.03125,"z":54.59375},"Ross 467":{"x":44.46875,"y":66.15625,"z":42.03125},"Ross 484":{"x":39.75,"y":96.75,"z":43.375},"Ross 970":{"x":59.96875,"y":110.375,"z":43},"Russi Wang":{"x":42.78125,"y":80.59375,"z":82.6875},"Serre":{"x":79.53125,"y":109.5,"z":26.09375},"Shasti":{"x":61.0625,"y":96.46875,"z":66.625},"Shoku":{"x":58.8125,"y":111.46875,"z":37.53125},"Tjalkond":{"x":45.71875,"y":74.96875,"z":73.125},"Tjupanabo":{"x":41.5625,"y":84.5625,"z":82.71875},"Tomani":{"x":61.9375,"y":87.40625,"z":44.875},"Tommegin":{"x":53.78125,"y":83.96875,"z":60.96875},"Trinar":{"x":49.75,"y":104.78125,"z":70.375},"Vestani":{"x":45.6875,"y":98.53125,"z":56.9375},"Yavas":{"x":73.3125,"y":94.96875,"z":27.84375}};
+
+// systems.forEach(function(system, name) { console.log(name); });
+
+// addStar("Sol", 0x35d7ff, 1, 0, 0, 0);
+// addStar("Sagittarius A*", 0x333333, 1, 25.21875, -20.90625, 25899.96875);
+loadDelta(function(dlta) {
+    for (var id in dlta) {
+        var system = dlta[id];
+        if (system.name in systems === true) {
+            systems[system.name].states = system.states;
+        }
+    }
+
+    addStar("Bugayaman", 0x35d7ff, 1, 55.0625,87.28125,56.78125);
+    for (var system in systems) {
+        if (system != "Bugayaman") {
+            var coords = systems[system];
+            addStar(system, 0x777d88, 1, coords['x'], coords['y'], coords['z']);
+        }
+    }
+
+});
+
+
+var bubble;
+
+var visibleStars = [];
+
+loadBubble(function(bubble) {
+    for (var id in bubble) {
+        var system = bubble[id];
+        if (system.name in systems === false) {
+            var star = addStar(system.name, 0x777d88, .1, system.coords.x, system.coords.y, system.coords.z);
+            // visibleStars.push(star);
+        }
+    }
+});
+
+window.onload = function() {
+    setTimeout(function() {
+        controls.moveTo( 55.0625, 87.28125, 56.78125, true);
+    }, 1000);
+    animate();
+}
+
+
+// var light = new THREE.PointLight( 0xffffff, 1, 10 );
+// light.position.set( 1, 1, 1 );
+// scene.add( light );
+
+// var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+// scene.add( directionalLight );
+//
+// ambientLight = new THREE.AmbientLight(0x2c3e50);
+// scene.add(ambientLight);
+// // and a point light to represent the source of the light volume
+// pointLight = new THREE.PointLight(0xffffff);
+// scene.add(pointLight);
+
+document.addEventListener( 'mousemove', function(event) {
+    event.preventDefault();
+    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+}, false );
+
+// document.addEventListener( 'keydown', function(event) {
+//     // event.preventDefault();
+//     // switch (event.code) {
+//     //     case "KeyW":
+//     //         camera.position.y++;
+//     //         break;
+//     // }
+//     console.log(event);
+//     // mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+// 	// mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+// }, false );
+
+// camera.position.z = 3;
+
+        renderer.setClearColor(0x05030b);
+
+function animate() {
+	// requestAnimationFrame( animate );
+    // sphere.rotation.x += 0.01;
+    // sphere.rotation.y += 0.01;
+    // setTimeout( function() {
+        // camera.rotation.y = degree * Math.PI / 180;
+        // degree++;
+
+
+        requestAnimationFrame( animate );
+
+        // controls.update();
+        const delta = clock.getDelta();
+	    const hasControlsUpdated = controls.update( delta );
+        TWEEN.update();
+    	update();
+
+        renderer.render( scene, camera );
+    // }, 1000 / 60 );
+}
+
+
+
+var intersected;
+var pulsing;
+
+function update() {
+
+    // visibleStars.forEach(function(sphere) {
+    //     if (sphere.position.distanceTo(controls.getPosition()) < 100) {
+    //         sphere.visible = true;
+    //     }
+    //     else {
+    //         sphere.visible = false;
+    //     }
+    // });
+
+    var lookAtVector = new THREE.Vector3(0,0, -1);
+    lookAtVector.applyQuaternion(camera.quaternion);
+    var target = controls.getTarget();
+    // console.log(target);
+    for (var i = 0; i < grid.length; i++) {
+        var line = grid[i];
+        // line.position.y = camera.position.y + Math.PI * camera.rotation.x;
+        // line.position.y = lookAtVector.y;
+        line.position.set(line.position.x, target.y, line.position.z);
+        // console.log(line.position.y);
+    }
+
+
+    var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
+	// projector.unprojectVector( vector, camera );
+    raycaster.setFromCamera( mouse, camera );
+
+
+
+	// calculate objects intersecting the picking ray
+	var intersects = raycaster.intersectObjects( scene.children );
+
+    var sphere_intersected = false;
+    if ( intersects.length > 0 ) {
+        for (var i = 0; i < intersects.length; i++) {
+            var mesh = intersects[i];
+            if (mesh.object.outline) {
+                sphere_intersected = true;
+
+                if ( mesh.object != intersected )
+        		{
+        		    // restore previous intersection object (if it exists) to its original color
+        			if ( intersected ) {
+                        scaleDown(intersected.outline);
+                    }
+        			// store reference to closest object as current intersection object
+        			intersected = mesh.object;
+
+                    scaleUp(intersected.outline);
+                    // pulsing = pulse(intersected.outline, 1000);
+
+                    if ( intersected.name )
+                    {
+                        systemCard.querySelector(".name").innerHTML = intersected.name;
+                        systemCard.querySelector(".state").innerHTML = intersected.state;
+
+                        systemCard.classList.add("show");
+
+
+                        var offset = screenXY(intersected);
+                        systemCard.style.top = offset.y - 100 + "px";
+                        systemCard.style.left = offset.x + 20 + "px";
+
+
+
+                    }
+                    else
+                    {
+                        systemCard.classList.remove("show");
+                    }
+
+        		}
+                break;
+            }
+        }
+	}
+	if (!sphere_intersected) {
+        if ( intersected ) {
+            if ( intersected.outline )
+			{
+                clearInterval(pulsing);
+                scaleDown(intersected.outline);
+			}
+        }
+		intersected = null;
+        systemCard.classList.remove("show");
+    }
+		// restore previous intersection object (if it exists) to its original color
+
+}
+
+function screenXY(obj) {
+
+  var vector = obj.clone().position;
+  var windowWidth = window.innerWidth;
+
+  // if(windowWidth < minWidth) {
+  //   windowWidth = minWidth;
+  // }
+
+  var widthHalf = (windowWidth/2);
+  var heightHalf = (window.innerHeight/2);
+
+  vector.project(camera);
+
+  vector.x = ( vector.x * widthHalf ) + widthHalf;
+  vector.y = - ( vector.y * heightHalf ) + heightHalf;
+  vector.z = 0;
+  if (vector.x > window.innerWidth - 180) {
+      vector.x = window.innerWidth - 180;
+  }
+  if (vector.y > window.innerHeight - 100) {
+      vector.y = window.innerHeight - 100;
+  }
+  if (vector.x < 0) {
+      vector.x = 0;
+  }
+  if (vector.y < 100) {
+      vector.y = 100;
+  }
+
+  return vector;
+
+};
+
+function pulse(mesh, duration) {
+    scaleUpDown(mesh, duration);
+    return setInterval(function() {
+        scaleUpDown(mesh, duration);
+    }, duration);
+}
+
+function scaleUpDown(mesh, duration) {
+    var initial = { x : 1, y: 1, z: 1 };
+    var target = { x : 5, y: 5, z: 5 };
+    tweenScale(mesh, initial, target, duration / 2);
+    setTimeout(function() {
+        var initial = { x : 5, y: 5, z: 5 };
+        var target = { x : 1, y: 1, z: 1 };
+        tweenScale(mesh, initial, target, duration / 2);
+    }, duration / 2);
+}
+
+function scaleUp(mesh) {
+    var initial = { x : 1, y: 1, z: 1 };
+    var target = { x : 3, y: 3, z: 3 };
+    tweenScale(mesh, initial, target, 200);
+}
+
+function scaleDown(mesh) {
+    var initial = { x : 3, y: 3, z: 3 };
+    var target = { x : 1, y: 1, z: 1 };
+    tweenScale(mesh, initial, target, 200);
+}
+
+function tweenScale(mesh, initial, target, duration) {
+    // intersected.outline.scale.set(3,3,3);
+    var tween = new TWEEN.Tween(initial).to(target, duration);
+    tween.easing(TWEEN.Easing.Cubic.InOut);
+    tween.start();
+    tween.onUpdate(function() {
+        mesh.scale.x = initial.x;
+        mesh.scale.y = initial.y;
+        mesh.scale.z = initial.z;
+    });
+}
+
+
+
+
+</script>
+</body>
+</html>
