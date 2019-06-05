@@ -1,13 +1,3 @@
-<?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-ini_set('max_execution_time', 3600);
-
-ini_set('memory_limit','8000M');
-
-
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,93 +12,6 @@ ini_set('memory_limit','8000M');
     <div class="state"></div>
 </div>
 
-<?php
-
-// require_once $_SERVER['DOCUMENT_ROOT'] . "/vendor/autoload.php";
-//
-// $listener = new \JsonStreamingParser\Listener\InMemoryListener();
-
-// $stream = fopen('c:/Users/ShtHappens796/Desktop/systemsWithCoordinates.json', 'r');
-// $stream = fopen('c:/Users/ShtHappens796/Desktop/test.json', 'r');
-
-function startsWith($haystack, $needle) {
-    return substr($haystack, 0, strlen($needle)) === $needle;
-}
-
-function endsWith($haystack, $needle) {
-    return substr($haystack, -strlen($needle)) === $needle;
-}
-
-function readTheFile($path) {
-    $handle = fopen($path, "r");
-
-    while(!feof($handle)) {
-        yield trim(fgets($handle));
-    }
-
-    fclose($handle);
-}
-
-function dist($a, $b) {
-    return sqrt(
-        pow(($a->coords->x - $b->coords->x), 2) +
-        pow(($a->coords->y - $b->coords->y), 2) +
-        pow(($a->coords->z - $b->coords->z), 2)
-    );
-}
-
-// processStars();
-
-function processStars() {
-    $base = (object)["coords" => (object)["x" => 55.0625, "y" => 87.28125, "z" => 56.78125]];
-    $file = readTheFile("c:/Users/ShtHappens796/Desktop/systemsWithCoordinates.json");
-    // $file = readTheFile("c:/Users/ShtHappens796/Desktop/test.json");
-
-    $parsed = [];
-
-    foreach ($file as $line) {
-        if ($line != "[" && $line != "]") {
-        // echo json_encode($line);
-            if (endsWith($line, "},")) {
-                $line = rtrim($line, ',');
-            }
-
-            // var_dump($line);
-            $system = json_decode($line);
-            // var_dump($system);
-            if (
-                dist($base, $system) < 100
-            ) {
-                $parsed[$system->id] = $system;
-                gc_collect_cycles();
-            }
-        }
-        // var_dump($iteration);
-        // preg_match("/^(.*?)$/", $iteration, $matches);
-        //
-        // if (count($matches)) {
-        //     var_dump($matches);
-        //     print ".";
-        //     flush();
-        //     ob_flush();
-        //     $buffer = "";
-        // } else {
-        //     $buffer .= $iteration . PHP_EOL;
-        // }
-    }
-
-    $success = file_put_contents("bubble.json", json_encode($parsed));
-    var_dump($success);
-
-    die();
-}
-
-
-
-
-
-
-?>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/104/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/16.3.5/Tween.min.js"></script>
